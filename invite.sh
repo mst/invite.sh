@@ -1,5 +1,44 @@
 #!/bin/bash
 
+usage() {
+    echo "invite.sh -i <github user name> [ -p <port> ] [ -s <session-name> ] [ -r ]"
+}
+
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -s|--tmux-session)
+        CLI_SESSION_NAME="$2"
+        shift # past argument
+        shift # past value
+        ;;
+         -p|--port)
+        PORT="$2"
+        shift # past argument
+        shift # past value
+        ;;
+         -i|--invitee)
+        GITHUB_USER="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        -r|--read-only)
+        READ_ONLY="-r"
+        shift # past argument
+        ;;
+        -h|--help|*)    # unknown option
+        usage
+        exit 1
+        ;;
+    esac
+done
+
+if [[ -z "$GITHUB_USER" ]]; then
+    echo "github user name is required: -i <github user name>" 
+    usage
+    exit 1
+fi
+
 unused_port() {
   # https://github.com/v1shwa/random-port-generator/blob/master/generate.sh
   while : ; do
@@ -8,9 +47,8 @@ unused_port() {
   done
 }
 
-GITHUB_USER=$1
-SESSION_NAME=${2:-`tmux display-message -p '#S'`}
-PORT=${3:-`unused_port`}
+SESSION_NAME=${CLI_SESSION_NAME:-`tmux display-message -p '#S'`}
+PORT=${PORT:-`unused_port`}
 
 make_hostkey() {
     mkdir -p ~/.invite.sh
@@ -54,8 +92,8 @@ trap "{ rm $SSHD_CONF ; }" EXIT
 
 HOST_KEY=`make_hostkey`
 
-## start
-IP=`ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p' | grep 10.`
+## get the local ips 
+IP=`ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'` 
 
 echo '---------------------------------------------------'
 echo 
@@ -65,9 +103,20 @@ for ip in ${IP[@]};do
     echo "ssh ${USER}@$ip -p $PORT"
 done
 echo 
-echo " while you may start the session via"
+if [[ ! -z $READ_ONLY ]]; then
+    echo " The invitation is read-only "
+else
+    echo " The invitation is read-write!!"
+fi
 echo 
-echo "tmux new -A -s $SESSION_NAME"
-echo 
+if [[ ! -z "$CLI_SESSION_NAME" ]]; then
+    echo " while you may start the session via"
+    echo 
+    echo "tmux new -A -s $SESSION_NAME"
+    echo 
+else
+    echo " The user will join your current tmux session: ${SESSION_NAME}"
+fi
+
 echo '---------------------------------------------------'
-/usr/sbin/sshd -e -p $PORT -h $HOST_KEY -D -f $SSHD_CONF -d
+/usr/sbin/sshd -e -p $PORT -h $HOST_KEY -D -f $SSHD_CONF
