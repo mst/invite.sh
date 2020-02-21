@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-    echo "invite.sh -i <github user name> [ -p <port> ] [ -s <session-name> ] [ -r ]"
+    echo "invite.sh -i <github user name> [ -p <bind-port> ] [ -s <session-name> ] [ -r|--read-only ]"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -38,6 +38,8 @@ if [[ -z "$GITHUB_USER" ]]; then
     usage
     exit 1
 fi
+
+join_by() { local IFS="$1"; shift; echo "$*"; }
 
 unused_port() {
   # https://github.com/v1shwa/random-port-generator/blob/master/generate.sh
@@ -95,13 +97,15 @@ HOST_KEY=`make_hostkey`
 ## get the local ips 
 IP=`ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'` 
 
+
 echo '---------------------------------------------------'
 echo 
 echo " Share this command with your peer:" 
 echo 
 for ip in ${IP[@]};do 
-    echo "ssh ${USER}@$ip -p $PORT"
+    echo -n "ssh ${USER}@$ip -p $PORT ||"
 done
+echo "echo 'something went wrong, no connection established'"
 echo 
 if [[ ! -z $READ_ONLY ]]; then
     echo " The invitation is read-only "
